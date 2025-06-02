@@ -11,6 +11,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <vaadin.version>24.3.11</vaadin.version> <!-- Vaadin version property -->
+        <jetty.version>12.0.7</jetty.version> <!-- Jetty version property -->
     </properties>
 
     <dependencyManagement>
@@ -26,12 +27,7 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- Spark Java -->
-        <dependency>
-            <groupId>com.sparkjava</groupId>
-            <artifactId>spark-core</artifactId>
-            <version>2.9.4</version>
-        </dependency>
+        <!-- Spark Java (REMOVED) -->
 
         <!-- Gson for JSON processing -->
         <dependency>
@@ -54,11 +50,32 @@
         </dependency>
 
         <!-- Servlet API -->
+        <!-- Servlet API (REMOVED - replaced by Jakarta EE 10 version) -->
+
+        <!-- Jetty Server -->
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>4.0.1</version>
-            <!-- Scope tag removed, defaults to compile -->
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <!-- Jetty Servlet Handler -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-servlet</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <!-- Jetty Webapp Handler -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-webapp</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <!-- Jakarta Servlet API (for Vaadin 24 / Jetty 12) -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.0.0</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Logback Classic for SLF4J implementation -->
@@ -98,6 +115,19 @@
                                 </transformer>
                             </transformers>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.vaadin</groupId>
+                <artifactId>vaadin-maven-plugin</artifactId>
+                <version>${vaadin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-frontend</goal>
+                            <goal>build-frontend</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

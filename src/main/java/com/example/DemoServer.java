@@ -1,38 +1,40 @@
 package com.example;
 
-import static spark.Spark.*;
+// Removed SparkJava imports: import static spark.Spark.*;
+// Gson, Services, Models, Custom Exceptions etc. are kept for when API endpoints are re-added
 import com.example.model.ContextData;
 import com.example.model.UserPreferences;
 import com.example.model.SearchResultItem;
 import com.example.model.SearchContextResponse;
-import com.example.exception.OpenAIServiceException; // Import custom exception
-import com.example.exception.SearchServiceException; // Import custom exception
+import com.example.exception.OpenAIServiceException;
+import com.example.exception.SearchServiceException;
 import com.example.service.OpenAIService;
 import com.example.service.SearchService;
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException; // For catching GSON parsing errors
+import com.google.gson.JsonSyntaxException;
 
-import java.time.Instant; // Using Instant for a modern way to get a timestamp
-import java.util.HashMap; // Added import for HashMap
-import java.util.List;    // Added import
-import java.util.Map;     // Added import
+// Jetty and Vaadin imports
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+import com.vaadin.flow.server.VaadinServlet;
+import com.example.ui.MainView; // Your Vaadin UI class
+import com.example.api.ContextServlet; // Import for the Context API servlet
+import com.example.api.SearchContextServlet; // Import for the Search Context API servlet
+
+import java.time.Instant; // Kept for now, used in old /context route
+import java.util.HashMap; // Kept for now
+import java.util.List;    // Kept for now
+import java.util.Map;     // Kept for now
 
 public class DemoServer {
 
-    // Inner class for parsing the search request payload - now a proper POJO
+    // Inner class for parsing the search request payload - kept for future API re-integration
     private static class SearchRequest {
         private String query;
-
-        // Default constructor for Gson
         public SearchRequest() {}
-
-        public String getQuery() {
-            return query;
-        }
-
-        public void setQuery(String query) {
-            this.query = query;
-        }
+        public String getQuery() { return query; }
+        public void setQuery(String query) { this.query = query; }
     }
 
     private static int getHerokuAssignedPort() {
@@ -42,129 +44,69 @@ public class DemoServer {
                 return Integer.parseInt(herokuPort);
             } catch (NumberFormatException e) {
                 System.err.println("Failed to parse PORT environment variable: " + herokuPort + ". Defaulting to 4567.");
-                // Optionally log with SLF4J if/when it's configured
                 return 4567;
             }
         }
         return 4567; // Default port if PORT env var is not set
     }
 
-    public static void main(String[] args) {
-        port(getHerokuAssignedPort()); // Use the dynamic port
-        Gson gson = new Gson();
-        SearchService searchService = new SearchService(); // Instantiated SearchService
-        OpenAIService openAIService = new OpenAIService(); // Instantiated OpenAIService
+    public static void main(String[] args) throws Exception {
+        int port = getHerokuAssignedPort();
+        Server server = new Server(port);
 
-        // Define a GET route for /context
-        get("/context", (request, response) -> {
-            try {
-                response.type("application/json");
+        ServletContextHandler contextHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        contextHandler.setContextPath("/");
 
-                // Retrieve userId from query parameter
-                String userIdParam = request.queryParams("userId");
-                String userIdToUse;
+        // Vaadin Servlet
+        ServletHolder vaadinServletHolder = new ServletHolder(VaadinServlet.class);
+        // Corrected init parameter for UI class for generic Servlet spec (Vaadin might also pick up from annotations)
+        // However, explicit is good. Vaadin's own documentation sometimes shows `UI` or relies on annotations.
+        // For VaadinServlet, the standard way if not using annotations for auto-detection is often just the class name.
+        // But to be very specific for servlet init params:
+        vaadinServletHolder.setInitParameter("UI", MainView.class.getName()); // Using "UI" as per standard for some setups.
+                                                                                // Vaadin 10+ often uses a different mechanism.
+                                                                                // If this doesn't work, it might be `vaadin.frontend.url.es6` or similar,
+                                                                                // or simply relying on @Route scan.
+                                                                                // For VaadinServlet, "UI" is a common parameter.
 
-                if (userIdParam != null && !userIdParam.isEmpty()) {
-                    userIdToUse = userIdParam;
-                } else {
-                    userIdToUse = "defaultUser"; // Default userId if not provided
-                }
+        // Enable production mode if VAADIN_PRODUCTION_MODE environment variable is set to true
+        String productionModeEnv = System.getenv("VAADIN_PRODUCTION_MODE");
+        if (productionModeEnv != null && productionModeEnv.equalsIgnoreCase("true")) {
+            // For Vaadin 14+ (including 24), setting a system property is a common way
+            // or using a servlet init parameter "productionMode".
+            vaadinServletHolder.setInitParameter("productionMode", "true");
+            System.out.println("Vaadin production mode enabled via VAADIN_PRODUCTION_MODE environment variable.");
+        } else {
+            // Default to development mode
+            vaadinServletHolder.setInitParameter("productionMode", "false"); // Explicitly false
+            System.out.println("Vaadin development mode enabled (VAADIN_PRODUCTION_MODE not 'true' or not set).");
+        }
 
-                // Create sample UserPreferences
-                UserPreferences preferences = new UserPreferences("enabled", "en");
+        contextHandler.addServlet(vaadinServletHolder, "/*");
 
-                // Create ContextData using the determined userId
-                ContextData contextDataObject = new ContextData(
-                        userIdToUse,
-                        "dark",
-                        preferences,
-                        Instant.now().toString() // Get current timestamp as ISO 8601 string
-                );
+        // --- API Endpoints ---
+        // Note: Gson, SearchService, OpenAIService are not instantiated here anymore
+        // unless they are passed to the servlets that need them.
+        // For ContextServlet, Gson is self-contained.
 
-                // Serialize ContextData to JSON and return
-                return gson.toJson(contextDataObject);
-            } catch (Exception e) {
-                e.printStackTrace(); // Log the error
-                response.status(500);
-                return "{\"error\":\"Internal server error\"}";
-            }
-        });
+        // Add ContextServlet for the /context API endpoint
+        ServletHolder contextServletHolder = new ServletHolder(ContextServlet.class);
+        contextHandler.addServlet(contextServletHolder, "/context");
 
-        // Define a POST route for /api/search-context
-        post("/api/search-context", (request, response) -> {
-            response.type("application/json");
-            try {
-                // Ensure request.body() is not null before parsing
-                String requestBody = request.body();
-                if (requestBody == null || requestBody.trim().isEmpty()) {
-                    response.status(400); // Bad Request
-                    return gson.toJson(Map.of("error", "Request body is missing or empty."));
-                }
+        // Add SearchContextServlet for the /api/search-context API endpoint
+        ServletHolder searchContextServletHolder = new ServletHolder(SearchContextServlet.class);
+        contextHandler.addServlet(searchContextServletHolder, "/api/search-context");
 
-                SearchRequest searchRequest = gson.fromJson(requestBody, SearchRequest.class);
+        // --- End API Endpoints ---
 
-                if (searchRequest == null || searchRequest.getQuery() == null || searchRequest.getQuery().trim().isEmpty()) {
-                    response.status(400); // Bad Request
-                    return gson.toJson(Map.of("error", "Query parameter is missing or empty in JSON payload."));
-                }
-                String query = searchRequest.getQuery();
+        server.setHandler(contextHandler);
 
-                List<SearchResultItem> searchResults;
-                try {
-                    searchResults = searchService.performSearch(query);
-                } catch (SearchServiceException e) {
-                    e.printStackTrace(); // Log the specific service error
-                    response.status(503); // Service Unavailable
-                    return gson.toJson(Map.of("error", "Search service failed", "details", e.getMessage()));
-                }
+        server.start();
+        System.out.println("Jetty server started on port " + port + ".");
+        System.out.println("Vaadin UI should be available at http://localhost:" + port + "/");
+        System.out.println("API endpoint /context is active.");
+        System.out.println("API endpoint /api/search-context is active."); // Updated message
 
-                // Construct prompt for LLM using SearchResultItem getters
-                StringBuilder promptBuilder = new StringBuilder("Based on the following search results, provide a brief summary:\n");
-                for (SearchResultItem item : searchResults) {
-                    promptBuilder.append("Title: ").append(item.getTitle()).append("\n");
-                    promptBuilder.append("Snippet: ").append(item.getSnippet()).append("\n\n");
-                }
-                String llmPrompt = promptBuilder.toString();
-
-                String llmSummary;
-                try {
-                    llmSummary = openAIService.getCompletion(llmPrompt);
-                } catch (OpenAIServiceException e) {
-                    e.printStackTrace(); // Log the specific service error
-                    response.status(503); // Service Unavailable
-                    return gson.toJson(Map.of("error", "LLM service failed", "details", e.getMessage()));
-                }
-
-                // Structure final response using SearchContextResponse POJO
-                SearchContextResponse finalResponse = new SearchContextResponse(searchResults, llmSummary);
-
-                return gson.toJson(finalResponse);
-            } catch (JsonSyntaxException e) {
-                e.printStackTrace(); // Log JSON parsing errors
-                response.status(400); // Bad Request
-                return gson.toJson(Map.of("error", "Invalid JSON payload: " + e.getMessage()));
-            } catch (Exception e) {
-                e.printStackTrace(); // Log other generic errors
-                response.status(500);
-                // Ensure the specific error message from the exception is included for better diagnostics
-                return gson.toJson(Map.of("error", "Internal server error: " + e.getMessage()));
-            }
-        });
-
-        // Handler for 404 - Route not found
-        notFound((req, res) -> {
-            res.type("application/json");
-            res.status(404);
-            return "{\"error\":\"Route not found\"}";
-        });
-
-        // Handler for 500 - Internal server error (global)
-        internalServerError((req, res) -> {
-            res.type("application/json");
-            res.status(500);
-            return "{\"error\":\"Unexpected internal server error\"}";
-        });
-
-        System.out.println("Server starting on port: " + port() + " with /context and /api/search-context endpoints and error handlers.");
+        server.join();
     }
 }

@@ -35,8 +35,22 @@ public class DemoServer {
         }
     }
 
+    private static int getHerokuAssignedPort() {
+        String herokuPort = System.getenv("PORT");
+        if (herokuPort != null) {
+            try {
+                return Integer.parseInt(herokuPort);
+            } catch (NumberFormatException e) {
+                System.err.println("Failed to parse PORT environment variable: " + herokuPort + ". Defaulting to 4567.");
+                // Optionally log with SLF4J if/when it's configured
+                return 4567;
+            }
+        }
+        return 4567; // Default port if PORT env var is not set
+    }
+
     public static void main(String[] args) {
-        port(4567); // Set the port for the server
+        port(getHerokuAssignedPort()); // Use the dynamic port
         Gson gson = new Gson();
         SearchService searchService = new SearchService(); // Instantiated SearchService
         OpenAIService openAIService = new OpenAIService(); // Instantiated OpenAIService
@@ -151,6 +165,6 @@ public class DemoServer {
             return "{\"error\":\"Unexpected internal server error\"}";
         });
 
-        System.out.println("Server started on port 4567, with /context and /api/search-context endpoints and error handlers.");
+        System.out.println("Server starting on port: " + port() + " with /context and /api/search-context endpoints and error handlers.");
     }
 }

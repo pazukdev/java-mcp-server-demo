@@ -61,12 +61,13 @@
             <!-- Scope tag removed, defaults to compile -->
         </dependency>
 
-        <!-- SLF4J Simple Logger -->
+        <!-- Logback Classic for SLF4J implementation -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>1.7.32</version>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.14</version>
         </dependency>
+        <!-- SLF4J Simple Logger (removed) -->
     </dependencies>
 
     <build>

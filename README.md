@@ -32,7 +32,7 @@ To build the server, navigate to the project's root directory and run:
 mvn clean package
 ```
 
-This will compile the Java code, process Vaadin frontend resources, and create a JAR file in the `target/` directory.
+This will compile the Java code and process Vaadin frontend resources. The build process uses the `maven-shade-plugin` to package the application into an executable 'fat JAR' (e.g., `target/demo-server-1.0-SNAPSHOT.jar`) which includes all necessary dependencies, making it suitable for standalone execution.
 
 ### Vaadin Frontend
 
@@ -43,11 +43,27 @@ Building and running Vaadin applications locally for development typically requi
 After building, you can run the SparkJava server (which provides the backend APIs) using:
 
 ```bash
+java -jar target/demo-server-1.0-SNAPSHOT.jar
+```
+Alternatively, during development, you can use the Maven exec plugin (as previously mentioned, though the fat JAR is preferred for standalone runs):
+```bash
 mvn exec:java -Dexec.mainClass="com.example.DemoServer"
 ```
 The backend server will start and listen on port `4567` by default.
 
 **Note on Vaadin UI:** Running the Vaadin UI in development mode typically involves the `vaadin-maven-plugin` and its `vaadin:dev` goal, or by running the application in an embedded Jetty/Tomcat server that can serve Servlets. The current SparkJava setup does not automatically serve the Vaadin UI. Integrating Vaadin's servlet for a full UI experience within an embedded server managed by or alongside SparkJava would be an additional setup step.
+
+## Deployment (Heroku)
+
+For deployment on platforms like Heroku, a `Procfile` is included:
+```Procfile
+web: java -jar target/demo-server-1.0-SNAPSHOT.jar
+```
+This command tells Heroku how to start the application using the executable JAR created by the `maven-shade-plugin`.
+A `system.properties` file is also included to specify the Java runtime version for Heroku:
+```
+java.runtime.version=17
+```
 
 ## Endpoints
 

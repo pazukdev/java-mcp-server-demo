@@ -58,16 +58,16 @@
             <artifactId>jetty-server</artifactId>
             <version>${jetty.version}</version>
         </dependency>
-        <!-- Jetty Servlet Handler -->
+        <!-- Jetty Servlet Handler (EE10 version) -->
         <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-servlet</artifactId>
+            <groupId>org.eclipse.jetty.ee10</groupId>
+            <artifactId>jetty-ee10-servlet</artifactId>
             <version>${jetty.version}</version>
         </dependency>
-        <!-- Jetty Webapp Handler -->
+        <!-- Jetty Webapp Handler (EE10 version) -->
         <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-webapp</artifactId>
+            <groupId>org.eclipse.jetty.ee10</groupId>
+            <artifactId>jetty-ee10-webapp</artifactId>
             <version>${jetty.version}</version>
         </dependency>
         <!-- Jakarta Servlet API (for Vaadin 24 / Jetty 12) -->
